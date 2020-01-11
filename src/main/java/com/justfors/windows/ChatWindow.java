@@ -8,24 +8,34 @@ import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.*;
 import javafx.stage.Stage;
 
 public class ChatWindow extends Application {
 
+    private Connection connection;
+
     public static String nickname;
     public static String ip;
     public static Integer port;
 
-    private static final TextFlow text_flow = new TextFlow();
-    private static Stage stage;
+    public static Double WIDTH = 300.0;
+    public static Double HEIGHT = 400.0;
+
+    public static final TextFlow text_flow = new TextFlow();
+    public static Stage stage;
+    public static ScrollPane scrollPane = new ScrollPane();
+    public static Button sendMessage = new Button("Send message");
+    public static TextArea textArea = new TextArea();
+    public static HBox hBox = new HBox(textArea,sendMessage);
+
+    public static String userName = null;
 
     public static void main(String[] args) {
         launch(args);
@@ -39,12 +49,18 @@ public class ChatWindow extends Application {
 
         btn.setText("Connect");
         btn.setOnAction(event -> {
-            primaryStage.setScene(connectionDialog());
+            stage.setScene(connectionDialog());
+        });
+        sendMessage.setOnAction(event -> {
+            String message = textArea.getText();
+            textArea.clear();
+            connection.sendAll(message);
+            stage.setScene(sendMessage(userName, message));
         });
 
         StackPane root = new StackPane();
         root.getChildren().add(btn);
-        primaryStage.setScene(new Scene(root, 300, 250));
+        primaryStage.setScene(new Scene(root, WIDTH, HEIGHT));
         primaryStage.show();
     }
 
@@ -54,7 +70,7 @@ public class ChatWindow extends Application {
         pane.setHgap(10);
         pane.setVgap(10);
         pane.setPadding(new Insets(25, 25, 25, 25));
-        Scene scene = new Scene(pane, 300, 275);
+        Scene scene = new Scene(pane, WIDTH, HEIGHT);
 
         Text sceneTitle = new Text("Connection form");
         sceneTitle.setFont(Font.font("Arial", FontWeight.NORMAL,20));
@@ -83,47 +99,42 @@ public class ChatWindow extends Application {
             ChatWindow.ip = connectionData[0];
             ChatWindow.port = Integer.valueOf(connectionData[1]);
             startNetwork();
-            stage.setScene(chatDialog());
+            stage.setScene(getChat());
         });
         return scene;
     }
 
-    private Scene chatDialog(){
-        // create text
-        Text text_1 = new Text("GeeksforGeeks\n");
+    public static Scene sendMessage(String writer, String message){
+        Text wrtr = new Text(writer + ":");
+        wrtr.setFill(Color.GREEN);
+        wrtr.setFont(Font.font("Verdana", 15));
+        Text msg = new Text(message + "\n");
+        msg.setFill(Color.GREEN);
+        msg.setFont(Font.font("Helvetica", 15));
 
-        // set the text color
-        text_1.setFill(Color.RED);
+        text_flow.getChildren().add(wrtr);
+        text_flow.getChildren().add(msg);
 
-        // set font of the text
-        text_1.setFont(Font.font("Verdana", 25));
+        scrollPane.setContent(text_flow);
+        VBox vBox = new VBox(scrollPane,hBox);
 
-        // create text
-        Text text_2 = new Text("The computer science portal for geeks");
-
-        // set the text color
-        text_2.setFill(Color.BLUE);
-
-        // set font of the text
-        text_2.setFont(Font.font("Helvetica", FontPosture.ITALIC, 15));
-
-        // add text to textflow
-        text_flow.getChildren().add(text_1);
-        text_flow.getChildren().add(text_2);
-
-        // create a scene
-        Scene scene = new Scene(text_flow, 400, 300);
-        return scene;
+        return new Scene(vBox, WIDTH, HEIGHT);
     }
 
+    private Scene getChat(){
+        scrollPane.setContent(text_flow);
+        VBox vBox = new VBox(scrollPane,hBox);
+        return new Scene(vBox, WIDTH, HEIGHT);
+    }
 
     private void startNetwork(){
-        Connection connection = new Connection(ChatWindow.nickname);
+        connection = new Connection(ChatWindow.nickname);
         if(UPnP.openPortTCP(7777)) {
             new Server(7777, connection).start();
         }
         String host = ChatWindow.ip;
         Integer port = ChatWindow.port;
         new Client(host, port, connection).start();
+        userName = ChatWindow.nickname + ":" + Server.getCurrentIP();
     }
 }

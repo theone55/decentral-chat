@@ -7,34 +7,24 @@ import com.justfors.server.NetConnectionServer;
 import com.justfors.server.Server;
 import com.justfors.stream.InputStream;
 import com.justfors.stream.OutputStream;
+import com.justfors.windows.ChatWindow;
+import javafx.application.Platform;
 
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Connection extends Thread implements NetConnectionClient, NetConnectionServer {
+public class Connection implements NetConnectionClient, NetConnectionServer {
 
     private static Map<String, com.justfors.common.Connection> connections = new ConcurrentHashMap<>();
 
     private String userId;
 
-
     public Connection(String userId) {
         this.userId = userId;
-    }
-
-    @Override
-    public void run() {
-        String message = null;
-        Scanner sc = new Scanner(System.in);
-        while (true) {
-            message = sc.nextLine();
-            sendAll(prepareData(message));
-        }
     }
 
     public void clientConnectionExecute(InputStream inputStream, OutputStream outputStream, Socket socket) throws IOException {
@@ -69,7 +59,8 @@ public class Connection extends Thread implements NetConnectionClient, NetConnec
         }
     }
 
-    private static void sendAll(String message) {
+    public void sendAll(String message) {
+        message = prepareData(message);
         for (Client.ClientConnection connection : Client.connections) {
             connection.getOut().send(message);
         }
@@ -84,23 +75,34 @@ public class Connection extends Thread implements NetConnectionClient, NetConnec
     }
 
     private void receiveMessage(TransferData data, Socket socket) {
-        if (data.getToken().equals(Token.NEW_CONNECTION)) {
-            com.justfors.common.Connection conn = null;
-            for (Server.ServerConnection connection : Server.connections) {
-                if (connection.getSocket().equals(socket)){
-                    conn = connection;
+        if (data != null) {
+            if (data.getToken().equals(Token.NEW_CONNECTION)) {
+                com.justfors.common.Connection conn = null;
+                for (Server.ServerConnection connection : Server.connections) {
+                    if (connection.getSocket().equals(socket)) {
+                        conn = connection;
+                    }
                 }
-            }
-            for (Client.ClientConnection connection : Client.connections) {
-                if (connection.getSocket().equals(socket)){
-                    conn = connection;
+                for (Client.ClientConnection connection : Client.connections) {
+                    if (connection.getSocket().equals(socket)) {
+                        conn = connection;
+                    }
                 }
+                connections.put(data.getUser() + ":" + socket.getInetAddress().getHostAddress(), conn);
+            } else if (data.getToken().equals(Token.CONNECTION_LIST)) {
+                //TODO: create new connections
+            } else {
+                String message = data.getData();
+                System.out.println(message);
+                connections.forEach((k, v) -> {
+                    if (v.getSocket().equals(socket)) {
+                        Platform.runLater(() -> {
+                            ChatWindow.stage.setScene(ChatWindow.sendMessage(k, message));
+                        });
+                    }
+                });
+
             }
-            connections.put(data.getUser() + ":" + socket.getInetAddress().getHostAddress(), conn);
-        } else if (data.getToken().equals(Token.CONNECTION_LIST)) {
-            //TODO: create new connections
-        } else {
-            System.out.println(data.getData());
         }
     }
 
