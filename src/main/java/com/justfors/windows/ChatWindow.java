@@ -9,17 +9,22 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.input.KeyCode;
+import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
-import javafx.scene.text.*;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
+
+import java.util.HashSet;
 
 public class ChatWindow extends Application {
 
     private Connection connection;
+    private static HashSet<Text> onlineMember = new HashSet<>();
+    private static VBox chatBox;
 
     public static String nickname;
     public static String ip;
@@ -28,14 +33,31 @@ public class ChatWindow extends Application {
     public static Double WIDTH = 300.0;
     public static Double HEIGHT = 400.0;
 
-    public static final TextFlow text_flow = new TextFlow();
+    public static final TextFlow textFlow = new TextFlow();
+    public static TextFlow onlineList = new TextFlow();
     public static Stage stage;
     public static ScrollPane scrollPane = new ScrollPane();
     public static Button sendMessage = new Button("Send message");
     public static TextArea textArea = new TextArea();
     public static HBox hBox = new HBox(textArea,sendMessage);
+    public static Scene currentScene;
 
     public static String userName = null;
+
+    {
+        scrollPane.setFitToWidth(true);
+        textFlow.setPrefWidth(Region.USE_COMPUTED_SIZE);
+        textArea.setWrapText(true);
+        textArea.setMaxHeight(HEIGHT);
+        textArea.setMaxWidth(WIDTH);
+        textArea.setMinHeight(HEIGHT);
+        textArea.setMinWidth(WIDTH);
+        textArea.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                sendMessage();
+            }
+        });
+    }
 
     public static void main(String[] args) {
         launch(args);
@@ -44,7 +66,9 @@ public class ChatWindow extends Application {
     @Override
     public void start(Stage primaryStage) {
         stage = primaryStage;
-        primaryStage.setTitle("JFDC");
+        stage.setMinWidth(WIDTH);
+        stage.setMinHeight(HEIGHT);
+        stage.setTitle("JFDC");
         Button btn = new Button();
 
         btn.setText("Connect");
@@ -52,16 +76,13 @@ public class ChatWindow extends Application {
             stage.setScene(connectionDialog());
         });
         sendMessage.setOnAction(event -> {
-            String message = textArea.getText();
-            textArea.clear();
-            connection.sendAll(message);
-            stage.setScene(sendMessage(userName, message));
+            sendMessage();
         });
 
         StackPane root = new StackPane();
         root.getChildren().add(btn);
-        primaryStage.setScene(new Scene(root, WIDTH, HEIGHT));
-        primaryStage.show();
+        stage.setScene(new Scene(root, WIDTH, HEIGHT));
+        stage.show();
     }
 
     private Scene connectionDialog(){
@@ -104,7 +125,7 @@ public class ChatWindow extends Application {
         return scene;
     }
 
-    public static Scene sendMessage(String writer, String message){
+    public static void sendMessage(String writer, String message){
         Text wrtr = new Text(writer + ":");
         wrtr.setFill(Color.GREEN);
         wrtr.setFont(Font.font("Verdana", 15));
@@ -112,17 +133,17 @@ public class ChatWindow extends Application {
         msg.setFill(Color.GREEN);
         msg.setFont(Font.font("Helvetica", 15));
 
-        text_flow.getChildren().add(wrtr);
-        text_flow.getChildren().add(msg);
+        textFlow.getChildren().add(wrtr);
+        textFlow.getChildren().add(msg);
 
-        scrollPane.setContent(text_flow);
-        VBox vBox = new VBox(scrollPane,hBox);
+        scrollPane.setContent(textFlow);
+        chatBox = new VBox(scrollPane,hBox);
 
-        return new Scene(vBox, WIDTH, HEIGHT);
+        refreshScene();
     }
 
     private Scene getChat(){
-        scrollPane.setContent(text_flow);
+        scrollPane.setContent(textFlow);
         VBox vBox = new VBox(scrollPane,hBox);
         return new Scene(vBox, WIDTH, HEIGHT);
     }
@@ -137,4 +158,35 @@ public class ChatWindow extends Application {
         new Client(host, port, connection).start();
         userName = ChatWindow.nickname + ":" + Server.getCurrentIP();
     }
+
+    private void sendMessage(){
+        String message = textArea.getText();
+        textArea.clear();
+        connection.sendAll(message);
+        sendMessage(userName, message);
+    }
+
+    public static void login(String userData){
+        Text member = new Text(userData + "\n");
+        onlineMember.add(member);
+        onlineList.getChildren().add(member);
+        refreshScene();
+    }
+
+    public static void logout(String userData){
+        for (Text text : onlineMember) {
+            if (text.getText().equals(userData + "\n")) {
+                onlineList.getChildren().remove(text);
+                onlineMember.remove(text);
+                break;
+            }
+        }
+        refreshScene();
+    }
+
+    public static void refreshScene(){
+        HBox hBox = new HBox(onlineList, chatBox);
+        stage.setScene(new Scene(hBox, WIDTH, HEIGHT));
+    }
+
 }

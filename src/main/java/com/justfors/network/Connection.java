@@ -54,6 +54,13 @@ public class Connection implements NetConnectionClient, NetConnectionServer {
                 }
             } catch (SocketException e) {
                 System.out.println("Connection close..." + socket);
+                connections.forEach((k, v) -> {
+                    if (v.getSocket().equals(socket)) {
+                        Platform.runLater(() -> {
+                            ChatWindow.logout(k);
+                        });
+                    }
+                });
                 break;
             }
         }
@@ -89,6 +96,9 @@ public class Connection implements NetConnectionClient, NetConnectionServer {
                     }
                 }
                 connections.put(data.getUser() + ":" + socket.getInetAddress().getHostAddress(), conn);
+                Platform.runLater(() -> {
+                    ChatWindow.login(data.getUser() + ":" + socket.getInetAddress().getHostAddress());
+                });
             } else if (data.getToken().equals(Token.CONNECTION_LIST)) {
                 //TODO: create new connections
             } else {
@@ -97,7 +107,7 @@ public class Connection implements NetConnectionClient, NetConnectionServer {
                 connections.forEach((k, v) -> {
                     if (v.getSocket().equals(socket)) {
                         Platform.runLater(() -> {
-                            ChatWindow.stage.setScene(ChatWindow.sendMessage(k, message));
+                            ChatWindow.sendMessage(k, message);
                         });
                     }
                 });
